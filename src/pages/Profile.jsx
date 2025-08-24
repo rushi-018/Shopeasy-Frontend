@@ -39,7 +39,7 @@ function Profile() {
       try {
         if (!isSignedIn) return
         const token = await getToken()
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
         const res = await axios.get(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${token}` } })
         const data = res.data
         setProfileData(prev => ({
@@ -70,7 +70,7 @@ function Profile() {
     e.preventDefault()
     try {
       const token = await getToken()
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
       const res = await axios.put(`${API_URL}/profile`, profileData, { headers: { Authorization: `Bearer ${token}` } })
       // sync redux auth user minimal fields
       dispatch(setUser({ user: res.data }))
