@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { useEffect } from 'react'
+import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react'
 import { getCurrentUser } from './store/slices/authSlice'
+import { useClerkIntegration } from './hooks/useClerkIntegration'
 import Navbar from './components/layout/Navbar'
 import Footer from './components/layout/Footer'
 import StoreOwnerLayout from './components/layout/StoreOwnerLayout'
@@ -11,6 +13,7 @@ import ProductDetails from './pages/ProductDetails'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderSuccess from './pages/OrderSuccess'
+import Orders from './pages/Orders'
 import Auth from './pages/Auth'
 import Profile from './pages/Profile'
 import StoreLocator from './pages/StoreLocator'
@@ -24,32 +27,67 @@ import DealsManagement from './pages/store/DealsManagement'
 import Analytics from './pages/store/Analytics'
 import Payments from './pages/store/Payments'
 import Settings from './pages/store/Settings'
+import ClerkTestPage from './pages/ClerkTestPage'
+import { useCartSync } from './hooks/useCartSync'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import { useAuth as useClerkAuth } from '@clerk/clerk-react'
+import { loadWishlist } from './store/slices/wishlistSlice'
+
+
 
 function App() {
   const { user, isAuthenticated } = useSelector((state) => state.auth)
   const dispatch = useDispatch()
+  const { isSignedIn, getToken } = useClerkAuth()
+
+  // Use our custom Clerk integration hook
+  // This will handle the sync between Clerk and our backend
+  const { isLoading: clerkLoading, error: clerkError } = useClerkIntegration();
+  useCartSync();
 
   useEffect(() => {
-    // Check if user is logged in on app load
+    // This is kept for backward compatibility with the existing auth system
+    // It will be removed once the Clerk integration is complete
     dispatch(getCurrentUser())
   }, [dispatch])
 
-  // Protected Route component
+  // Preload wishlist once when signed in
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (isSignedIn) {
+          const token = await getToken()
+          if (token) dispatch(loadWishlist(token))
+        }
+      } catch {}
+    }
+    load()
+  }, [isSignedIn, getToken, dispatch])
+
+  // Protected Route component that works with both Clerk and legacy auth
   const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-    if (!isAuthenticated) {
-      return <Navigate to="/auth" />
-    }
-
-    if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
-      return <Navigate to="/" />
-    }
-
-    return children
+    return (
+      <>
+        <SignedIn>
+          {/* If user has specific role requirements, check them */}
+          {allowedRoles.length > 0 && user && !allowedRoles.includes(user?.role) ? (
+            <Navigate to="/" />
+          ) : (
+            children
+          )}
+        </SignedIn>
+        <SignedOut>
+          <RedirectToSignIn />
+        </SignedOut>
+      </>
+    )
   }
 
   return (
     <Router>
       <div className="flex flex-col min-h-screen">
+  <ToastContainer position="top-right" autoClose={2000} hideProgressBar newestOnTop closeOnClick pauseOnHover />
         {/* Render different layouts based on user role */}
         {isAuthenticated && user?.role === 'store_owner' ? (
           <StoreOwnerLayout>
@@ -76,6 +114,7 @@ function App() {
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/order-success" element={<OrderSuccess />} />
+                <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                 <Route path="/auth" element={<Auth />} />
                 <Route
                   path="/profile"
@@ -89,6 +128,7 @@ function App() {
                 <Route path="/stores/:id" element={<StoreDetails />} />
                 <Route path="/real-products" element={<ScrapedProducts />} />
                 <Route path="/manage-products" element={<ProductsManagement />} />
+                <Route path="/clerk-test" element={<ClerkTestPage />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </main>

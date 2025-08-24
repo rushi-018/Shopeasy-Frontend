@@ -1,10 +1,20 @@
-import { useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useEffect, useState } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
 import { UserIcon, ShoppingBagIcon, HeartIcon, CogIcon } from '@heroicons/react/24/outline'
+import axios from 'axios'
+import { useAuth as useClerkAuth, useUser as useClerkUser } from '@clerk/clerk-react'
+import { setUser } from '../store/slices/authSlice'
+import { orderService } from '../services/orderService'
+import { wishlistService } from '../services/wishlistService'
 
 function Profile() {
+  const dispatch = useDispatch()
   const { user } = useSelector((state) => state.auth)
+  const { isSignedIn, getToken } = useClerkAuth()
+  const { user: clerkUser } = useClerkUser()
   const [activeTab, setActiveTab] = useState('profile')
+  const [orders, setOrders] = useState([])
+  const [wishlist, setWishlist] = useState([])
 
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
@@ -24,11 +34,68 @@ function Profile() {
     }))
   }
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (!isSignedIn) return
+        const token = await getToken()
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+        const res = await axios.get(`${API_URL}/profile`, { headers: { Authorization: `Bearer ${token}` } })
+        const data = res.data
+        setProfileData(prev => ({
+          ...prev,
+          name: data.name || prev.name,
+          email: data.email || prev.email,
+          phone: data.phone || prev.phone,
+        }))
+      } catch (e) {
+        // no-op
+      }
+    }
+    load()
+  }, [isSignedIn, getToken])
+
+  useEffect(() => {
+    // Set Clerk defaults if missing
+    if (clerkUser) {
+      setProfileData(prev => ({
+        ...prev,
+        name: prev.name || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
+        email: prev.email || clerkUser.primaryEmailAddress?.emailAddress || ''
+      }))
+    }
+  }, [clerkUser])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // TODO: Implement profile update
-    console.log('Update profile:', profileData)
+    try {
+      const token = await getToken()
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const res = await axios.put(`${API_URL}/profile`, profileData, { headers: { Authorization: `Bearer ${token}` } })
+      // sync redux auth user minimal fields
+      dispatch(setUser({ user: res.data }))
+    } catch (e) {
+      // surface later via toast
+    }
   }
+
+  useEffect(() => {
+    const loadAux = async () => {
+      try {
+        if (!isSignedIn) return
+        const token = await getToken()
+        const [ordersData, wishlistData] = await Promise.all([
+          orderService.getMyOrders(token).catch(() => []),
+          wishlistService.get(token).catch(() => [])
+        ])
+        setOrders(ordersData)
+        setWishlist(wishlistData)
+      } catch {
+        // ignore
+      }
+    }
+    loadAux()
+  }, [isSignedIn, getToken])
 
   const defaultProfileImage = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiM0RjQ2RTUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIyMHB4IiBmaWxsPSJ3aGl0ZSI+UHJvZmlsZTwvdGV4dD48L3N2Zz4='
 
@@ -45,6 +112,11 @@ function Profile() {
                 <UserIcon className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
                 {user?.email}
               </div>
+              {user?.role && (
+                <span className="mt-2 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+                  {user.role === 'store_owner' ? 'Store Owner' : 'Customer'}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -220,18 +292,59 @@ function Profile() {
             )}
 
             {activeTab === 'orders' && (
-              <div className="text-center py-12">
-                <ShoppingBagIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No orders</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by creating a new order.</p>
+              <div className="space-y-4">
+                {orders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ShoppingBagIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No orders</h3>
+                  </div>
+                ) : (
+                  orders.map(o => (
+                    <div key={o._id} className="border rounded-md p-4 bg-white">
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>Order ID: {o._id}</span>
+                        <span>{new Date(o.createdAt).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-2 text-sm">
+                        <div className="font-medium">Status: {o.payment?.status || 'paid'}</div>
+                        <div>Amount: ₹{(o.amount/1).toLocaleString()}</div>
+                      </div>
+                      <ul className="mt-2 list-disc ml-5 text-sm text-gray-800">
+                        {(o.items||[]).map((it, idx) => (
+                          <li key={idx}>{it.name} x{it.quantity} - ₹{(it.price*it.quantity).toLocaleString()}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 
             {activeTab === 'wishlist' && (
-              <div className="text-center py-12">
-                <HeartIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No wishlist items</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by adding items to your wishlist.</p>
+              <div className="space-y-4">
+                {(!wishlist || wishlist.length === 0) ? (
+                  <div className="text-center py-12">
+                    <HeartIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No wishlist items</h3>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {wishlist.map((p) => (
+                      <div key={p._id || p.id || p.productId} className="border rounded-md p-4 bg-white flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900">{p.name || 'Saved product'}</div>
+                          {p.price && <div className="text-sm text-gray-600">₹{p.price}</div>}
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try { const token = await getToken(); const pid = (p._id || p.id || p.productId); await wishlistService.remove(token, pid); setWishlist(wishlist.filter(x => (x._id||x.id||x.productId) !== pid)) } catch {}
+                          }}
+                          className="text-sm text-red-600 hover:underline"
+                        >Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { ShoppingCartIcon, StarIcon, MapPinIcon, TruckIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { addToCart } from '../store/slices/cartSlice'
 import priceComparisonService from '../services/priceComparisonService'
 import { generateProductPlaceholder, normalizeProductImages } from '../utils/imageUtils'
+import { useAuth as useClerkAuth } from '@clerk/clerk-react'
+import { addToWishlist, removeFromWishlist } from '../store/slices/wishlistSlice'
+import { HeartIcon as HeartOutline } from '@heroicons/react/24/outline'
+import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
+import { toast } from 'react-toastify'
 
 function ProductDetails() {
   const { id } = useParams()
@@ -16,6 +21,8 @@ function ProductDetails() {
   const [quantity, setQuantity] = useState(1)
   const [selectedStore, setSelectedStore] = useState(null)
   const [userLocation, setUserLocation] = useState(null)
+  const { isSignedIn, getToken } = useClerkAuth()
+  const wishlistItems = useSelector((state) => state.wishlist?.items || [])
 
   // Function to get user's location
   const getUserLocation = () => {
@@ -179,6 +186,26 @@ function ProductDetails() {
     }))
   }
 
+  const productKey = (product?._id || product?.id)?.toString()
+  const isWishlisted = useMemo(() => {
+    if (!productKey) return false
+    return wishlistItems.some(p => (p._id || p.id)?.toString() === productKey)
+  }, [wishlistItems, productKey])
+
+  const onToggleWishlist = async () => {
+    if (!product) return
+    if (!isSignedIn) { toast.info('Sign in to use wishlist'); return }
+    const token = await getToken()
+    const id = product._id || product.id
+    if (!isWishlisted) {
+      dispatch(addToWishlist({ token, productId: id }))
+      toast.success('Added to wishlist')
+    } else {
+      dispatch(removeFromWishlist({ token, productId: id }))
+      toast.info('Removed from wishlist')
+    }
+  }
+
   const getBestPrice = () => {
     if (!product) return 0;
     
@@ -285,9 +312,19 @@ function ProductDetails() {
 
         {/* Product Info */}
         <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0 lg:self-center">
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-            {product.name}
-          </h1>
+          <div className="flex items-start justify-between">
+            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+              {product.name}
+            </h1>
+            <button
+              onClick={onToggleWishlist}
+              className={`ml-4 p-2 rounded ${isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              title={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              {isWishlisted ? <HeartSolid className="h-7 w-7" /> : <HeartOutline className="h-7 w-7" />}
+            </button>
+          </div>
 
           <div className="mt-3">
             <h2 className="sr-only">Product information</h2>

@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom'
-import { HeartIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { addToWishlist, removeFromWishlist } from '../../store/slices/wishlistSlice'
+import { useAuth as useClerkAuth } from '@clerk/clerk-react'
+import { HeartIcon as HeartOutline } from '@heroicons/react/24/outline'
+import { HeartIcon as HeartSolid } from '@heroicons/react/24/solid'
+import { toast } from 'react-toastify'
 
 function ProductCard({ product }) {
   const [imageError, setImageError] = useState(false);
+  const dispatch = useDispatch()
+  const { isSignedIn, getToken } = useClerkAuth()
+  const wishlistItems = useSelector((state) => state.wishlist?.items || [])
   
   // Generate a placeholder image if needed
   const generatePlaceholder = (name) => {
@@ -32,6 +40,22 @@ function ProductCard({ product }) {
   // Ensure numeric product ID
   const numericId = parseInt(product.id, 10);
   const productLink = `/products/${numericId}`;
+  const productKey = (product._id || product.id)?.toString()
+  const isWishlisted = useMemo(() => {
+    return wishlistItems.some(p => (p._id || p.id || p.productId)?.toString() === productKey)
+  }, [wishlistItems, productKey])
+  const onToggleWishlist = async () => {
+    if (!isSignedIn) { toast.info('Sign in to use wishlist'); return }
+    const token = await getToken()
+    const id = (product._id || product.id)?.toString()
+    if (!isWishlisted) {
+      dispatch(addToWishlist({ token, productId: id, name: product.name, price: product.price || product.minPrice, image: product.image }))
+      toast.success('Added to wishlist')
+    } else {
+      dispatch(removeFromWishlist({ token, productId: id }))
+      toast.info('Removed from wishlist')
+    }
+  }
   
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -61,8 +85,8 @@ function ProductCard({ product }) {
             </p>
           </div>
           
-          <button className="p-2 text-gray-400 hover:text-red-500">
-            <HeartIcon className="h-6 w-6" />
+          <button onClick={onToggleWishlist} className={`p-2 ${isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}>
+            {isWishlisted ? <HeartSolid className="h-6 w-6" /> : <HeartOutline className="h-6 w-6" />}
           </button>
         </div>
 

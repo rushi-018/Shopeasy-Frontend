@@ -1,42 +1,53 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { MapPinIcon, PhoneIcon, ClockIcon } from '@heroicons/react/24/outline'
+import StoreMap from '../components/maps/StoreMap'
 
 function StoreLocator() {
   const [stores, setStores] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [viewMode, setViewMode] = useState('list') // 'list' or 'map'
 
   useEffect(() => {
     // TODO: Replace with actual API call
     // Mock data for now
     setStores([
       {
-        id: 1,
+        _id: '1',
         name: 'Store 1',
         image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgMzAwIDMwMCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiM0RjQ2RTUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIyNHB4IiBmaWxsPSJ3aGl0ZSI+U3RvcmUgMTwvdGV4dD48L3N2Zz4=',
         address: '123 Main St',
-        rating: 4.5
+        rating: 4.5,
+        location: {
+          coordinates: [72.8777, 19.0760] // Mumbai
+        }
       },
       {
-        id: 2,
+        _id: '2',
         name: 'Store 2',
         address: '456 Market St, City 2',
         phone: '+91 9876543210',
         hours: '10:00 AM - 9:00 PM',
         rating: 4.2,
         image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgMzAwIDMwMCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiMxMEI5ODEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIyNHB4IiBmaWxsPSJ3aGl0ZSI+U3RvcmUgMjwvdGV4dD48L3N2Zz4=',
-        distance: '3.8 km'
+        distance: '3.8 km',
+        location: {
+          coordinates: [77.2090, 28.6139] // Delhi
+        }
       },
       {
-        id: 3,
+        _id: '3',
         name: 'Store 3',
         address: '789 Shopping St, City 3',
         phone: '+91 5555555555',
         hours: '11:00 AM - 8:00 PM',
         rating: 4.7,
         image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgMzAwIDMwMCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNGNTlFMEIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIyNHB4IiBmaWxsPSJ3aGl0ZSI+U3RvcmUgMzwvdGV4dD48L3N2Zz4=',
-        distance: '5.2 km'
+        distance: '5.2 km',
+        location: {
+          coordinates: [80.2707, 13.0827] // Chennai
+        }
       }
     ])
     setLoading(false)
@@ -67,8 +78,8 @@ function StoreLocator() {
       </div>
 
       <div className="mt-8">
-        <div className="max-w-xl mx-auto">
-          <div className="relative">
+        <div className="flex justify-between items-center max-w-xl mx-auto">
+          <div className="relative flex-grow">
             <input
               type="text"
               value={searchQuery}
@@ -77,10 +88,37 @@ function StoreLocator() {
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
             />
           </div>
+          <div className="ml-4 flex items-center">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-l-md ${
+                viewMode === 'list'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-2 rounded-r-md ${
+                viewMode === 'map'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              Map
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      {viewMode === 'map' ? (
+        <div className="mt-8">
+          <StoreMap stores={filteredStores} />
+        </div>
+      ) : (
+        <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {filteredStores.map((store) => (
           <div
             key={store.id}
@@ -138,8 +176,14 @@ function StoreLocator() {
             </div>
           </div>
         ))}
+        
+        {filteredStores.length === 0 && (
+          <div className="col-span-3 py-12 text-center">
+            <p className="text-lg text-gray-500">No stores found matching your search.</p>
+          </div>
+        )}
       </div>
-
+      )}
       {filteredStores.length === 0 && (
         <div className="text-center py-12">
           <h3 className="mt-2 text-sm font-medium text-gray-900">No stores found</h3>

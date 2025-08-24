@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { ShoppingCartIcon, UserIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import { logout } from '../../store/slices/authSlice'
+import { SignedIn, SignedOut, useAuth as useClerkAuth } from '@clerk/clerk-react'
 
 function Navbar() {
   const dispatch = useDispatch()
@@ -10,8 +11,14 @@ function Navbar() {
   const { isAuthenticated, user } = useSelector((state) => state.auth)
   const { items } = useSelector((state) => state.cart)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { signOut } = useClerkAuth()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOut()
+    } catch (e) {
+      // ignore
+    }
     dispatch(logout())
     setIsMenuOpen(false)
     navigate('/')
@@ -80,8 +87,9 @@ function Navbar() {
             </Link>
 
             {/* User Menu */}
-            {isAuthenticated ? (
-              <div className="ml-3 relative">
+            {/* Clerk-driven visibility */}
+            <SignedIn>
+              <div className="ml-3 relative z-50">
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="flex items-center space-x-2 text-gray-900 hover:text-primary focus:outline-none"
@@ -91,7 +99,7 @@ function Navbar() {
                 </button>
 
                 {isMenuOpen && (
-                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100">
+                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50">
                     {user?.role === 'store_owner' ? (
                       <Link
                         to="/store/dashboard"
@@ -118,7 +126,8 @@ function Navbar() {
                   </div>
                 )}
               </div>
-            ) : (
+            </SignedIn>
+            <SignedOut>
               <div className="ml-3 flex items-center space-x-4">
                 <Link
                   to="/auth"
@@ -133,7 +142,7 @@ function Navbar() {
                   Sign up
                 </Link>
               </div>
-            )}
+            </SignedOut>
 
             {/* Mobile menu button */}
             <div className="ml-3 sm:hidden">

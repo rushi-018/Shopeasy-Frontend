@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const paymentService = {
   async createOrder(amount, currency = 'INR') {
@@ -87,7 +87,7 @@ export const paymentService = {
               response.razorpay_order_id,
               response.razorpay_signature
             )
-            if (verification.success) {
+            if (verification.success && verification.verified) {
               console.log('Payment verified successfully')
               onSuccess(response)
             } else {

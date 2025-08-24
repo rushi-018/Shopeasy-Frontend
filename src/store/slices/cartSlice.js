@@ -1,4 +1,21 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { cartService } from '../../services/cartService'
+
+export const loadCartFromServer = createAsyncThunk(
+  'cart/loadFromServer',
+  async (token) => {
+    const data = await cartService.getCart(token)
+    return data.items || []
+  }
+)
+
+export const saveCartToServer = createAsyncThunk(
+  'cart/saveToServer',
+  async ({ token, items }) => {
+    const data = await cartService.setCart(token, items)
+    return data.items || []
+  }
+)
 
 const initialState = {
   items: []
@@ -28,6 +45,15 @@ const cartSlice = createSlice({
     clearCart: (state) => {
       state.items = []
     }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loadCartFromServer.fulfilled, (state, action) => {
+        state.items = action.payload
+      })
+      .addCase(saveCartToServer.fulfilled, (state, action) => {
+        state.items = action.payload
+      })
   }
 })
 
